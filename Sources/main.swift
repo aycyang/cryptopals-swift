@@ -1,14 +1,20 @@
 struct ChunkingIterator<T:IteratorProtocol>: IteratorProtocol {
     private var wrapped: T
-    init(_ wrapped: T) {
+    private let chunkSize: Int
+    init(wrapped: T, chunkSize: Int) {
         self.wrapped = wrapped
+        self.chunkSize = chunkSize
     }
-    mutating func next() -> (T.Element, T.Element?)? {
-        let first = self.wrapped.next()
-        if first == nil {
-            return nil
+    mutating func next() -> [T.Element]? {
+        var result: [T.Element] = []
+        while result.count < self.chunkSize {
+            let cur = self.wrapped.next()
+            if cur == nil {
+                return result.count == 0 ? nil : result
+            }
+            result.append(cur!)
         }
-        return (first!, self.wrapped.next())
+        return result;
     }
 }
 
@@ -31,19 +37,20 @@ func hexCharToInt8(_ hexchar: Character) throws -> UInt8 {
 }
 
 func hexToBytesLE(_ hexstr: String) -> [UInt8] {
-    var it = ChunkingIterator(hexstr.reversed().makeIterator())
+    var it = ChunkingIterator(wrapped: hexstr.reversed().makeIterator(), chunkSize: 2)
     var cur = it.next()
     var result: [UInt8] = []
     while cur != nil {
-        var byte: UInt8 = try! hexCharToInt8(cur!.0)
-        if cur!.1 != nil {
-            let upper = try! hexCharToInt8(cur!.1!)
-            byte += upper << 4
-        }
-        result.append(byte)
+        print(cur!)
         cur = it.next()
     }
     return result
 }
 
-print(hexToBytesLE("badbeef"))
+func bytesLEToBase64(_ bytes: [UInt8]) -> String {
+    // TODO use chunking iterator with chunk size of 3
+    return ""
+}
+
+hexToBytesLE("badbeef")
+bytesLEToBase64([255, 254, 253, 252])
