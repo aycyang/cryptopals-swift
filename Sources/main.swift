@@ -1,20 +1,37 @@
-struct ChunkingIterator<T:IteratorProtocol>: IteratorProtocol {
-    private var wrapped: T
+struct ChunkingSequence<Base:Sequence>: Sequence {
+    private let baseSequence: Base
     private let chunkSize: Int
-    init(wrapped: T, chunkSize: Int) {
-        self.wrapped = wrapped
+    init(baseSequence: Base, chunkSize: Int) {
+        self.baseSequence = baseSequence
         self.chunkSize = chunkSize
     }
-    mutating func next() -> [T.Element]? {
-        var result: [T.Element] = []
-        while result.count < self.chunkSize {
-            let cur = self.wrapped.next()
-            if cur == nil {
-                return result.count == 0 ? nil : result
-            }
-            result.append(cur!)
+    func makeIterator() -> Iterator {
+        Iterator(baseIterator: self.baseSequence.makeIterator(), chunkSize: self.chunkSize)
+    }
+    struct Iterator: IteratorProtocol {
+        private var baseIterator: Base.Iterator
+        private let chunkSize: Int
+        init(baseIterator: Base.Iterator, chunkSize: Int) {
+            self.baseIterator = baseIterator
+            self.chunkSize = chunkSize
         }
-        return result;
+        mutating func next() -> [Base.Element]? {
+            var result: [Base.Element] = []
+            while result.count < self.chunkSize {
+                let cur = self.baseIterator.next()
+                if cur == nil {
+                    return result.count == 0 ? nil : result
+                }
+                result.append(cur!)
+            }
+            return result;
+        }
+    }
+}
+
+extension Sequence {
+    func chunks(ofSize chunkSize: Int) -> ChunkingSequence<Self> {
+        return ChunkingSequence(baseSequence: self, chunkSize: chunkSize)
     }
 }
 
@@ -37,12 +54,11 @@ func hexCharToInt8(_ hexchar: Character) throws -> UInt8 {
 }
 
 func hexToBytesLE(_ hexstr: String) -> [UInt8] {
-    var it = ChunkingIterator(wrapped: hexstr.reversed().makeIterator(), chunkSize: 2)
-    var cur = it.next()
     var result: [UInt8] = []
-    while cur != nil {
-        print(cur!)
-        cur = it.next()
+    let seq = hexstr.reversed().chunks(ofSize: 3)
+    for b in seq {
+        print(b)
+        result.append(0)
     }
     return result
 }
@@ -52,5 +68,5 @@ func bytesLEToBase64(_ bytes: [UInt8]) -> String {
     return ""
 }
 
-hexToBytesLE("badbeef")
-bytesLEToBase64([255, 254, 253, 252])
+let _ = hexToBytesLE("badbeef")
+let _ = bytesLEToBase64([255, 254, 253, 252])
